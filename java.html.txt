@@ -1,0 +1,1544 @@
+import React, { useEffect, useState } from "react";
+
+const API = "http://127.0.0.1:5000/api";
+
+function App() {
+  const [loggedIn, setLoggedIn] = useState(
+    localStorage.getItem("libraryLoggedIn") === "true"
+  );
+
+  const [page, setPage] = useState("dashboard");
+
+  const [username, setUsername] = useState(
+    localStorage.getItem("libraryUser") || ""
+  );
+
+  const [loginData, setLoginData] = useState({
+    username: "",
+    password: ""
+  });
+
+  const [dashboard, setDashboard] = useState({});
+  const [books, setBooks] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [issues, setIssues] = useState([]);
+  const [reports, setReports] = useState({});
+  const [activities, setActivities] = useState([]);
+
+  const [bookSearch, setBookSearch] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+
+  const [message, setMessage] = useState("");
+
+  const [bookForm, setBookForm] = useState({
+    title: "",
+    author: "",
+    isbn: "",
+    category: "",
+    publisher: "",
+    year: "",
+    quantity: 1
+  });
+
+  const [studentForm, setStudentForm] = useState({
+    student_id: "",
+    name: "",
+    email: "",
+    phone: "",
+    department: "",
+    year: ""
+  });
+
+  const [issueForm, setIssueForm] = useState({
+    book_id: "",
+    student_id: ""
+  });
+
+  useEffect(() => {
+    if (loggedIn) {
+      loadAllData();
+    }
+  }, [loggedIn]);
+
+  async function loadAllData() {
+    await Promise.all([
+      loadDashboard(),
+      loadBooks(),
+      loadStudents(),
+      loadIssues(),
+      loadReports(),
+      loadActivities()
+    ]);
+  }
+
+  async function loadDashboard() {
+    try {
+      const res = await fetch(`${API}/dashboard`);
+      const data = await res.json();
+      setDashboard(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadBooks() {
+    try {
+      const res = await fetch(`${API}/books`);
+      const data = await res.json();
+      setBooks(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadStudents() {
+    try {
+      const res = await fetch(`${API}/students`);
+      const data = await res.json();
+      setStudents(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadIssues() {
+    try {
+      const res = await fetch(`${API}/issues`);
+      const data = await res.json();
+      setIssues(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadReports() {
+    try {
+      const res = await fetch(`${API}/reports`);
+      const data = await res.json();
+      setReports(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadActivities() {
+    try {
+      const res = await fetch(`${API}/activities`);
+      const data = await res.json();
+      setActivities(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // LOGIN
+
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    try {
+      const res = await fetch(`${API}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(loginData)
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem("libraryLoggedIn", "true");
+        localStorage.setItem("libraryUser", data.user.username);
+
+        setUsername(data.user.username);
+        setLoggedIn(true);
+        setMessage("");
+      } else {
+        setMessage(data.message);
+      }
+    } catch (error) {
+      setMessage("Cannot connect to backend.");
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch(`${API}/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (error) {
+      console.error(error);
+    }
+
+    localStorage.removeItem("libraryLoggedIn");
+    localStorage.removeItem("libraryUser");
+
+    setLoggedIn(false);
+  }
+
+  // BOOKS
+
+  async function addBook(e) {
+    e.preventDefault();
+
+    try {
+      const res = await fetch(`${API}/books`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(bookForm)
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setMessage("Book added successfully");
+
+        setBookForm({
+          title: "",
+          author: "",
+          isbn: "",
+          category: "",
+          publisher: "",
+          year: "",
+          quantity: 1
+        });
+
+        loadBooks();
+        loadDashboard();
+        loadActivities();
+      } else {
+        setMessage(data.message);
+      }
+    } catch (error) {
+      setMessage("Failed to add book");
+    }
+  }
+
+  async function deleteBook(id) {
+    if (!window.confirm("Delete this book?")) return;
+
+    try {
+      const res = await fetch(`${API}/books/${id}`, {
+        method: "DELETE"
+      });
+
+      const data = await res.json();
+
+      setMessage(data.message);
+
+      if (res.ok) {
+        loadBooks();
+        loadDashboard();
+        loadActivities();
+      }
+    } catch (error) {
+      setMessage("Failed to delete book");
+    }
+  }
+
+  async function searchBooks() {
+    try {
+      if (!bookSearch.trim()) {
+        loadBooks();
+        return;
+      }
+
+      const res = await fetch(
+        `${API}/books/search?q=${encodeURIComponent(bookSearch)}`
+      );
+
+      const data = await res.json();
+
+      setBooks(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // STUDENTS
+
+  async function addStudent(e) {
+    e.preventDefault();
+
+    try {
+      const res = await fetch(`${API}/students`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(studentForm)
+      });
+
+      const data = await res.json();
+
+      setMessage(data.message);
+
+      if (res.ok) {
+        setStudentForm({
+          student_id: "",
+          name: "",
+          email: "",
+          phone: "",
+          department: "",
+          year: ""
+        });
+
+        loadStudents();
+        loadDashboard();
+        loadActivities();
+      }
+    } catch (error) {
+      setMessage("Failed to add student");
+    }
+  }
+
+  async function deleteStudent(id) {
+    if (!window.confirm("Delete this student?")) return;
+
+    try {
+      const res = await fetch(`${API}/students/${id}`, {
+        method: "DELETE"
+      });
+
+      const data = await res.json();
+
+      setMessage(data.message);
+
+      if (res.ok) {
+        loadStudents();
+        loadDashboard();
+      }
+    } catch (error) {
+      setMessage("Failed to delete student");
+    }
+  }
+
+  // ISSUE BOOK
+
+  async function issueBook(e) {
+    e.preventDefault();
+
+    try {
+      const res = await fetch(`${API}/issues`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          book_id: Number(issueForm.book_id),
+          student_id: Number(issueForm.student_id)
+        })
+      });
+
+      const data = await res.json();
+
+      setMessage(data.message);
+
+      if (res.ok) {
+        setIssueForm({
+          book_id: "",
+          student_id: ""
+        });
+
+        loadIssues();
+        loadBooks();
+        loadDashboard();
+        loadActivities();
+      }
+    } catch (error) {
+      setMessage("Failed to issue book");
+    }
+  }
+
+  // RETURN BOOK
+
+  async function returnBook(id) {
+    try {
+      const res = await fetch(`${API}/issues/${id}/return`, {
+        method: "PUT"
+      });
+
+      const data = await res.json();
+
+      setMessage(data.message);
+
+      if (res.ok) {
+        loadIssues();
+        loadBooks();
+        loadDashboard();
+        loadActivities();
+      }
+    } catch (error) {
+      setMessage("Failed to return book");
+    }
+  }
+
+  // FILTER STUDENTS
+
+  const filteredStudents = students.filter((student) => {
+    const search = studentSearch.toLowerCase();
+
+    return (
+      student.name.toLowerCase().includes(search) ||
+      student.student_id.toLowerCase().includes(search) ||
+      (student.department || "").toLowerCase().includes(search)
+    );
+  });
+
+  if (!loggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+
+        <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-8 shadow-2xl">
+
+          <div className="text-center mb-8">
+
+            <div className="text-5xl mb-4">
+              📚
+            </div>
+
+            <h1 className="text-3xl font-bold text-white">
+              University Library
+            </h1>
+
+            <p className="text-slate-400 mt-2">
+              Library Management System
+            </p>
+
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+
+            <div>
+              <label className="text-sm text-slate-300">
+                Username
+              </label>
+
+              <input
+                type="text"
+                value={loginData.username}
+                onChange={(e) =>
+                  setLoginData({
+                    ...loginData,
+                    username: e.target.value
+                  })
+                }
+                className="w-full mt-2 p-3 rounded-lg bg-slate-800 text-white border border-slate-700"
+                placeholder="Enter username"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-300">
+                Password
+              </label>
+
+              <input
+                type="password"
+                value={loginData.password}
+                onChange={(e) =>
+                  setLoginData({
+                    ...loginData,
+                    password: e.target.value
+                  })
+                }
+                className="w-full mt-2 p-3 rounded-lg bg-slate-800 text-white border border-slate-700"
+                placeholder="Enter password"
+                required
+              />
+            </div>
+
+            {message && (
+              <div className="text-red-400 text-sm">
+                {message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-semibold"
+            >
+              Login
+            </button>
+
+          </form>
+
+          <p className="text-center text-xs text-slate-500 mt-6">
+            Default: admin / admin123
+          </p>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex">
+
+      {/* SIDEBAR */}
+
+      <aside className="w-64 bg-slate-900 border-r border-slate-800 p-5 hidden md:block">
+
+        <div className="mb-8">
+
+          <div className="flex items-center gap-3">
+
+            <div className="text-3xl">
+              📚
+            </div>
+
+            <div>
+              <h1 className="font-bold">
+                Apex Library
+              </h1>
+
+              <p className="text-xs text-slate-500">
+                Management System
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="space-y-2">
+
+          <NavButton
+            title="Dashboard"
+            active={page === "dashboard"}
+            onClick={() => setPage("dashboard")}
+          />
+
+          <NavButton
+            title="Books"
+            active={page === "books"}
+            onClick={() => setPage("books")}
+          />
+
+          <NavButton
+            title="Student Patrons"
+            active={page === "students"}
+            onClick={() => setPage("students")}
+          />
+
+          <NavButton
+            title="Issue & Returns"
+            active={page === "issues"}
+            onClick={() => setPage("issues")}
+          />
+
+          <NavButton
+            title="Analytics & Reports"
+            active={page === "reports"}
+            onClick={() => setPage("reports")}
+          />
+
+        </div>
+
+        <div className="border-t border-slate-800 mt-8 pt-5">
+
+          <p className="text-xs text-slate-500 mb-3">
+            LOGGED IN AS
+          </p>
+
+          <p className="text-sm font-semibold">
+            {username}
+          </p>
+
+          <button
+            onClick={handleLogout}
+            className="mt-4 w-full py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </aside>
+
+      {/* MAIN */}
+
+      <main className="flex-1 p-5 md:p-8 overflow-auto">
+
+        <div className="mb-6 flex justify-between items-center">
+
+          <div>
+
+            <h2 className="text-3xl font-bold">
+              {page === "dashboard" && "Dashboard"}
+
+              {page === "books" && "Books"}
+
+              {page === "students" && "Student Patrons"}
+
+              {page === "issues" && "Issue & Returns"}
+
+              {page === "reports" && "Analytics & Reports"}
+
+            </h2>
+
+            <p className="text-slate-500 mt-1">
+              University Central Library
+            </p>
+
+          </div>
+
+          {message && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-2 rounded-lg text-sm">
+              {message}
+            </div>
+          )}
+
+        </div>
+
+        {/* DASHBOARD */}
+
+        {page === "dashboard" && (
+
+          <div className="space-y-6">
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+              <Stat
+                title="Total Books"
+                value={dashboard.total_books || 0}
+                icon="📚"
+              />
+
+              <Stat
+                title="Available"
+                value={dashboard.available_books || 0}
+                icon="✅"
+              />
+
+              <Stat
+                title="Issued"
+                value={dashboard.issued_books || 0}
+                icon="📖"
+              />
+
+              <Stat
+                title="Students"
+                value={dashboard.students || 0}
+                icon="👨‍🎓"
+              />
+
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6">
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+                <h3 className="text-xl font-semibold mb-5">
+                  Library Overview
+                </h3>
+
+                <div className="space-y-4">
+
+                  <InfoRow
+                    label="Total Books"
+                    value={dashboard.total_books || 0}
+                  />
+
+                  <InfoRow
+                    label="Available Books"
+                    value={dashboard.available_books || 0}
+                  />
+
+                  <InfoRow
+                    label="Currently Issued"
+                    value={dashboard.issued_books || 0}
+                  />
+
+                  <InfoRow
+                    label="Returned Books"
+                    value={dashboard.returned_books || 0}
+                  />
+
+                  <InfoRow
+                    label="Overdue Books"
+                    value={dashboard.overdue_books || 0}
+                  />
+
+                  <InfoRow
+                    label="Registered Students"
+                    value={dashboard.students || 0}
+                  />
+
+                </div>
+
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+                <h3 className="text-xl font-semibold mb-5">
+                  Recent Activities
+                </h3>
+
+                <div className="space-y-4">
+
+                  {activities.length === 0 ? (
+
+                    <p className="text-slate-500">
+                      No activities yet.
+                    </p>
+
+                  ) : (
+
+                    activities.slice(0, 8).map((activity) => (
+
+                      <div
+                        key={activity.id}
+                        className="border-b border-slate-800 pb-3"
+                      >
+
+                        <p className="font-medium">
+                          {activity.activity}
+                        </p>
+
+                        <p className="text-sm text-slate-500">
+                          {activity.description}
+                        </p>
+
+                        <p className="text-xs text-slate-600 mt-1">
+                          {activity.created_at}
+                        </p>
+
+                      </div>
+
+                    ))
+
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* BOOKS */}
+
+        {page === "books" && (
+
+          <div className="space-y-6">
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <h3 className="text-xl font-semibold mb-5">
+                Add New Book
+              </h3>
+
+              <form
+                onSubmit={addBook}
+                className="grid md:grid-cols-2 lg:grid-cols-4 gap-4"
+              >
+
+                <Input
+                  placeholder="Book title"
+                  value={bookForm.title}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      title: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Author"
+                  value={bookForm.author}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      author: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="ISBN"
+                  value={bookForm.isbn}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      isbn: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Category"
+                  value={bookForm.category}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      category: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Publisher"
+                  value={bookForm.publisher}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      publisher: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Year"
+                  type="number"
+                  value={bookForm.year}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      year: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Quantity"
+                  type="number"
+                  value={bookForm.quantity}
+                  onChange={(e) =>
+                    setBookForm({
+                      ...bookForm,
+                      quantity: e.target.value
+                    })
+                  }
+                />
+
+                <button
+                  type="submit"
+                  className="bg-emerald-500 hover:bg-emerald-400 rounded-lg font-semibold"
+                >
+                  + Add Book
+                </button>
+
+              </form>
+
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <div className="flex gap-3 mb-5">
+
+                <input
+                  value={bookSearch}
+                  onChange={(e) => setBookSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      searchBooks();
+                    }
+                  }}
+                  placeholder="Search books..."
+                  className="flex-1 p-3 rounded-lg bg-slate-800 border border-slate-700"
+                />
+
+                <button
+                  onClick={searchBooks}
+                  className="px-5 bg-emerald-500 rounded-lg"
+                >
+                  Search
+                </button>
+
+                <button
+                  onClick={loadBooks}
+                  className="px-5 bg-slate-700 rounded-lg"
+                >
+                  Reset
+                </button>
+
+              </div>
+
+              <div className="overflow-x-auto">
+
+                <table className="w-full">
+
+                  <thead>
+
+                    <tr className="border-b border-slate-700 text-left">
+
+                      <th className="p-3">Title</th>
+                      <th className="p-3">Author</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3">Quantity</th>
+                      <th className="p-3">Available</th>
+                      <th className="p-3">Action</th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {books.map((book) => (
+
+                      <tr
+                        key={book.id}
+                        className="border-b border-slate-800"
+                      >
+
+                        <td className="p-3 font-medium">
+                          {book.title}
+                        </td>
+
+                        <td className="p-3 text-slate-400">
+                          {book.author}
+                        </td>
+
+                        <td className="p-3">
+                          {book.category || "-"}
+                        </td>
+
+                        <td className="p-3">
+                          {book.quantity}
+                        </td>
+
+                        <td className="p-3 text-emerald-400">
+                          {book.available}
+                        </td>
+
+                        <td className="p-3">
+
+                          <button
+                            onClick={() => deleteBook(book.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Delete
+                          </button>
+
+                        </td>
+
+                      </tr>
+
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* STUDENTS */}
+
+        {page === "students" && (
+
+          <div className="space-y-6">
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <h3 className="text-xl font-semibold mb-5">
+                Register Student
+              </h3>
+
+              <form
+                onSubmit={addStudent}
+                className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
+              >
+
+                <Input
+                  placeholder="Student ID"
+                  value={studentForm.student_id}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      student_id: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Student name"
+                  value={studentForm.name}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      name: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Email"
+                  type="email"
+                  value={studentForm.email}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      email: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Phone"
+                  value={studentForm.phone}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      phone: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Department"
+                  value={studentForm.department}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      department: e.target.value
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Year"
+                  value={studentForm.year}
+                  onChange={(e) =>
+                    setStudentForm({
+                      ...studentForm,
+                      year: e.target.value
+                    })
+                  }
+                />
+
+                <button
+                  type="submit"
+                  className="bg-emerald-500 rounded-lg font-semibold py-3"
+                >
+                  + Register Student
+                </button>
+
+              </form>
+
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <input
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Search students..."
+                className="w-full p-3 mb-5 rounded-lg bg-slate-800 border border-slate-700"
+              />
+
+              <div className="overflow-x-auto">
+
+                <table className="w-full">
+
+                  <thead>
+
+                    <tr className="border-b border-slate-700 text-left">
+
+                      <th className="p-3">Student ID</th>
+                      <th className="p-3">Name</th>
+                      <th className="p-3">Email</th>
+                      <th className="p-3">Department</th>
+                      <th className="p-3">Year</th>
+                      <th className="p-3">Action</th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {filteredStudents.map((student) => (
+
+                      <tr
+                        key={student.id}
+                        className="border-b border-slate-800"
+                      >
+
+                        <td className="p-3">
+                          {student.student_id}
+                        </td>
+
+                        <td className="p-3 font-medium">
+                          {student.name}
+                        </td>
+
+                        <td className="p-3 text-slate-400">
+                          {student.email}
+                        </td>
+
+                        <td className="p-3">
+                          {student.department}
+                        </td>
+
+                        <td className="p-3">
+                          {student.year}
+                        </td>
+
+                        <td className="p-3">
+
+                          <button
+                            onClick={() => deleteStudent(student.id)}
+                            className="text-red-400"
+                          >
+                            Delete
+                          </button>
+
+                        </td>
+
+                      </tr>
+
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* ISSUE / RETURN */}
+
+        {page === "issues" && (
+
+          <div className="space-y-6">
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <h3 className="text-xl font-semibold mb-5">
+                Issue Book
+              </h3>
+
+              <form
+                onSubmit={issueBook}
+                className="grid md:grid-cols-3 gap-4"
+              >
+
+                <select
+                  value={issueForm.book_id}
+                  onChange={(e) =>
+                    setIssueForm({
+                      ...issueForm,
+                      book_id: e.target.value
+                    })
+                  }
+                  className="p-3 rounded-lg bg-slate-800 border border-slate-700"
+                  required
+                >
+
+                  <option value="">
+                    Select Book
+                  </option>
+
+                  {books
+                    .filter((book) => book.available > 0)
+                    .map((book) => (
+
+                      <option
+                        key={book.id}
+                        value={book.id}
+                      >
+                        {book.title} ({book.available} available)
+                      </option>
+
+                    ))}
+
+                </select>
+
+                <select
+                  value={issueForm.student_id}
+                  onChange={(e) =>
+                    setIssueForm({
+                      ...issueForm,
+                      student_id: e.target.value
+                    })
+                  }
+                  className="p-3 rounded-lg bg-slate-800 border border-slate-700"
+                  required
+                >
+
+                  <option value="">
+                    Select Student
+                  </option>
+
+                  {students.map((student) => (
+
+                    <option
+                      key={student.id}
+                      value={student.id}
+                    >
+                      {student.student_id} - {student.name}
+                    </option>
+
+                  ))}
+
+                </select>
+
+                <button
+                  type="submit"
+                  className="bg-emerald-500 rounded-lg font-semibold"
+                >
+                  Issue Book
+                </button>
+
+              </form>
+
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <h3 className="text-xl font-semibold mb-5">
+                Issue History
+              </h3>
+
+              <div className="overflow-x-auto">
+
+                <table className="w-full">
+
+                  <thead>
+
+                    <tr className="border-b border-slate-700 text-left">
+
+                      <th className="p-3">Book</th>
+                      <th className="p-3">Student</th>
+                      <th className="p-3">Issue Date</th>
+                      <th className="p-3">Due Date</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Action</th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {issues.map((issue) => (
+
+                      <tr
+                        key={issue.id}
+                        className="border-b border-slate-800"
+                      >
+
+                        <td className="p-3 font-medium">
+                          {issue.book_title}
+                        </td>
+
+                        <td className="p-3">
+                          {issue.student_name}
+                        </td>
+
+                        <td className="p-3">
+                          {issue.issue_date}
+                        </td>
+
+                        <td className="p-3">
+                          {issue.due_date}
+                        </td>
+
+                        <td className="p-3">
+
+                          <span
+                            className={
+                              issue.status === "Overdue"
+                                ? "text-red-400"
+                                : issue.status === "Returned"
+                                ? "text-emerald-400"
+                                : "text-yellow-400"
+                            }
+                          >
+                            {issue.status}
+                          </span>
+
+                        </td>
+
+                        <td className="p-3">
+
+                          {issue.status !== "Returned" && (
+
+                            <button
+                              onClick={() => returnBook(issue.id)}
+                              className="text-emerald-400"
+                            >
+                              Return
+                            </button>
+
+                          )}
+
+                        </td>
+
+                      </tr>
+
+                    ))}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* REPORTS */}
+
+        {page === "reports" && (
+
+          <div className="space-y-6">
+
+            <div className="grid md:grid-cols-3 gap-5">
+
+              <Stat
+                title="Total Books"
+                value={dashboard.total_books || 0}
+                icon="📚"
+              />
+
+              <Stat
+                title="Total Issues"
+                value={
+                  reports.monthly_issues
+                    ? reports.monthly_issues.reduce(
+                        (sum, item) => sum + item.issued,
+                        0
+                      )
+                    : 0
+                }
+                icon="📊"
+              />
+
+              <Stat
+                title="Overdue"
+                value={dashboard.overdue_books || 0}
+                icon="⚠️"
+              />
+
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6">
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+                <h3 className="text-xl font-semibold mb-5">
+                  Popular Books
+                </h3>
+
+                <div className="space-y-3">
+
+                  {(reports.popular_books || []).map((book, index) => (
+
+                    <div
+                      key={index}
+                      className="flex justify-between border-b border-slate-800 pb-3"
+                    >
+
+                      <span>
+                        {book.title}
+                      </span>
+
+                      <span className="text-emerald-400">
+                        {book.times_issued} issues
+                      </span>
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+                <h3 className="text-xl font-semibold mb-5">
+                  Categories
+                </h3>
+
+                <div className="space-y-3">
+
+                  {(reports.categories || []).map(
+                    (category, index) => (
+
+                      <div
+                        key={index}
+                        className="flex justify-between border-b border-slate-800 pb-3"
+                      >
+
+                        <span>
+                          {category.category || "Uncategorized"}
+                        </span>
+
+                        <span className="text-emerald-400">
+                          {category.total_quantity} books
+                        </span>
+
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+              <h3 className="text-xl font-semibold mb-5">
+                Monthly Issue Report
+              </h3>
+
+              <div className="space-y-3">
+
+                {(reports.monthly_issues || []).map(
+                  (month, index) => (
+
+                    <div
+                      key={index}
+                      className="flex justify-between"
+                    >
+
+                      <span>
+                        {month.month}
+                      </span>
+
+                      <span className="text-emerald-400">
+                        {month.issued} books issued
+                      </span>
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+
+        )}
+
+      </main>
+
+    </div>
+  );
+}
+
+
+// =========================
+// COMPONENTS
+// =========================
+
+function NavButton({ title, active, onClick }) {
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-4 py-3 rounded-lg transition ${
+        active
+          ? "bg-emerald-500 text-white"
+          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+      }`}
+    >
+      {title}
+    </button>
+  );
+}
+
+
+function Stat({ title, value, icon }) {
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+
+      <div className="flex justify-between items-center">
+
+        <div>
+
+          <p className="text-sm text-slate-500">
+            {title}
+          </p>
+
+          <p className="text-3xl font-bold mt-2">
+            {value}
+          </p>
+
+        </div>
+
+        <div className="text-3xl">
+          {icon}
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function InfoRow({ label, value }) {
+
+  return (
+    <div className="flex justify-between border-b border-slate-800 pb-3">
+
+      <span className="text-slate-400">
+        {label}
+      </span>
+
+      <span className="font-semibold">
+        {value}
+      </span>
+
+    </div>
+  );
+}
+
+
+function Input({
+  placeholder,
+  value,
+  onChange,
+  type = "text"
+}) {
+
+  return (
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      className="p-3 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-500 outline-none focus:border-emerald-500"
+      required
+    />
+  );
+}
+
+
+export default App;
